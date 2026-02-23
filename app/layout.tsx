@@ -38,9 +38,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`font-sans antialiased`}>
+      <body className={`font-sans antialiased`} suppressHydrationWarning>
         {children}
         <Analytics />
+        <Script id="metamask-error-handler" strategy="beforeInteractive">
+          {`
+            window.addEventListener('error', function(event) {
+              if (event.message && event.message.includes('MetaMask')) {
+                event.preventDefault();
+              }
+            }, true);
+            
+            if (window.ethereum && typeof window.ethereum.request === 'function') {
+              window.ethereum.on('error', function(error) {
+                console.log('MetaMask error handled:', error);
+              });
+            }
+          `}
+        </Script>
         <Script
           src="https://cdn.utmify.com.br/scripts/utms/latest.js"
           data-utmify-prevent-xcod-sck
