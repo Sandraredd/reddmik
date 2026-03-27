@@ -28,22 +28,53 @@ export function Completion({ balance }: CompletionProps) {
     if (!trackingFired.current) {
       trackingFired.current = true
       
-      // Get UTM parameters for tracking
+      // List of tracking parameters
+      const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'src', 'sck', 'xcod']
+      
+      // Get UTM parameters - try URL first, then localStorage
       const urlParams = new URLSearchParams(window.location.search)
-      const utmData = {
-        utm_source: urlParams.get('utm_source') || '',
-        utm_medium: urlParams.get('utm_medium') || '',
-        utm_campaign: urlParams.get('utm_campaign') || '',
-        utm_content: urlParams.get('utm_content') || '',
-        utm_term: urlParams.get('utm_term') || '',
-        fbclid: urlParams.get('fbclid') || '',
-        src: urlParams.get('src') || '',
-        sck: urlParams.get('sck') || '',
-      }
+      const utmData: Record<string, string> = {}
+      
+      trackingParams.forEach(param => {
+        let value = urlParams.get(param)
+        if (!value && typeof localStorage !== 'undefined') {
+          value = localStorage.getItem('_utmify_' + param)
+        }
+        if (value) {
+          utmData[param] = value
+        }
+      })
+      
+      console.log('[v0] Tracking data collected:', utmData)
       
       // Fire Meta Pixel Lead event IMMEDIATELY
       if (typeof window !== 'undefined' && window.fbq) {
+        console.log('[v0] Firing Meta Pixel Lead event')
         window.fbq('track', 'Lead', {
+          content_name: 'Quiz Completed',
+          value: balance,
+          currency: 'USD',
+          ...utmData
+        })
+      } else {
+        console.log('[v0] Meta Pixel not available, retrying...')
+        // Retry after a short delay if fbq is not ready
+        setTimeout(() => {
+          if (typeof window !== 'undefined' && window.fbq) {
+            console.log('[v0] Firing Meta Pixel Lead event (retry)')
+            window.fbq('track', 'Lead', {
+              content_name: 'Quiz Completed',
+              value: balance,
+              currency: 'USD',
+              ...utmData
+            })
+          }
+        }, 1000)
+      }
+      
+      // Also fire CompleteRegistration as backup event for better tracking
+      if (typeof window !== 'undefined' && window.fbq) {
+        window.fbq('track', 'CompleteRegistration', {
           content_name: 'Quiz Completed',
           value: balance,
           currency: 'USD',
@@ -83,7 +114,7 @@ export function Completion({ balance }: CompletionProps) {
       })
       
       // Build redirect URL with all tracking parameters
-      const baseUrl = "https://clothing-reviewers.netlify.app/"
+      const baseUrl = "https://shein-moneylooksreview-namibia.vercel.app/"
       const redirectUrl = finalParams.toString() 
         ? `${baseUrl}?${finalParams.toString()}`
         : baseUrl
