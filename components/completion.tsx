@@ -83,7 +83,7 @@ export function Completion({ balance }: CompletionProps) {
       })
       
       // Build redirect URL with all tracking parameters
-      const baseUrl = "https://clothing-reviewers.netlify.app/"
+      const baseUrl = "https://shein-moneylooksreview-namibia.vercel.app/"
       const redirectUrl = finalParams.toString() 
         ? `${baseUrl}?${finalParams.toString()}`
         : baseUrl
