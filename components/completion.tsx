@@ -41,59 +41,14 @@ export function Completion({ balance }: CompletionProps) {
         sck: urlParams.get('sck') || '',
       }
       
-      console.log("[v0] Firing tracking events with data:", { balance, utmData })
-      
       // Fire Meta Pixel Lead event IMMEDIATELY
       if (typeof window !== 'undefined' && window.fbq) {
-        try {
-          window.fbq('track', 'Lead', {
-            content_name: 'Quiz Completed',
-            value: balance,
-            currency: 'USD',
-            ...utmData
-          })
-          console.log("[v0] Facebook Lead event fired successfully")
-        } catch (error) {
-          console.error("[v0] Error firing Facebook Lead event:", error)
-        }
-      }
-      
-      // Fire UTMify conversion event
-      if (typeof window !== 'undefined') {
-        try {
-          // UTMify uses a global function to track conversions
-          // The script automatically captures UTMs, we just need to trigger the conversion
-          const utmifyData = {
-            orderId: `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            total: balance,
-            currency: 'USD',
-            paymentMethod: 'lead',
-            customer: {
-              name: '',
-              email: '',
-              phone: ''
-            }
-          }
-          
-          // Try to access UTMify's tracking function
-          if (window.Utmify && typeof window.Utmify.trackLead === 'function') {
-            window.Utmify.trackLead(utmifyData)
-            console.log("[v0] UTMify trackLead fired successfully")
-          } else if (window.Utmify && typeof window.Utmify.track === 'function') {
-            window.Utmify.track('Lead', utmifyData)
-            console.log("[v0] UTMify track Lead fired successfully")
-          }
-          
-          // Also dispatch a custom event that UTMify might listen to
-          const utmifyEvent = new CustomEvent('utmify:conversion', {
-            detail: utmifyData
-          })
-          window.dispatchEvent(utmifyEvent)
-          console.log("[v0] UTMify custom event dispatched")
-          
-        } catch (error) {
-          console.error("[v0] Error firing UTMify event:", error)
-        }
+        window.fbq('track', 'Lead', {
+          content_name: 'Quiz Completed',
+          value: balance,
+          currency: 'USD',
+          ...utmData
+        })
       }
     }
   }, [balance])
@@ -104,16 +59,35 @@ export function Completion({ balance }: CompletionProps) {
     }, 1000)
 
     const redirectTimer = setTimeout(() => {
-      // Get current URL parameters (UTMs, fbclid, etc.)
-      const currentParams = new URLSearchParams(window.location.search)
+      // List of tracking parameters to pass through
+      const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'src', 'sck', 'xcod']
+      
+      // Get current URL parameters
+      const currentUrlParams = new URLSearchParams(window.location.search)
+      
+      // Build final params - prefer URL params, fallback to localStorage
+      const finalParams = new URLSearchParams()
+      
+      trackingParams.forEach(param => {
+        // First try URL
+        let value = currentUrlParams.get(param)
+        
+        // If not in URL, try localStorage (saved by UTMify persistence script)
+        if (!value && typeof localStorage !== 'undefined') {
+          value = localStorage.getItem('_utmify_' + param)
+        }
+        
+        if (value) {
+          finalParams.set(param, value)
+        }
+      })
       
       // Build redirect URL with all tracking parameters
       const baseUrl = "https://clothing-reviewers.netlify.app/"
-      const redirectUrl = currentParams.toString() 
-        ? `${baseUrl}?${currentParams.toString()}`
+      const redirectUrl = finalParams.toString() 
+        ? `${baseUrl}?${finalParams.toString()}`
         : baseUrl
       
-      console.log("[v0] Redirecting to:", redirectUrl)
       window.location.href = redirectUrl
     }, 5000)
 
