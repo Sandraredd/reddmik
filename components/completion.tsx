@@ -2,14 +2,101 @@
 
 import { Card } from "@/components/ui/card"
 import { CheckCircle2, Award, ExternalLink } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 
 interface CompletionProps {
   balance: number
 }
 
+// Extend Window interface for tracking scripts
+declare global {
+  interface Window {
+    fbq: (...args: unknown[]) => void
+    Utmify?: {
+      trackLead?: (data: Record<string, unknown>) => void
+      track?: (event: string, data: Record<string, unknown>) => void
+    }
+  }
+}
+
 export function Completion({ balance }: CompletionProps) {
   const [countdown, setCountdown] = useState(5)
+  const trackingFired = useRef(false)
+
+  useEffect(() => {
+    // Fire tracking events immediately on mount (only once)
+    if (!trackingFired.current) {
+      trackingFired.current = true
+      
+      // Get UTM parameters for tracking
+      const urlParams = new URLSearchParams(window.location.search)
+      const utmData = {
+        utm_source: urlParams.get('utm_source') || '',
+        utm_medium: urlParams.get('utm_medium') || '',
+        utm_campaign: urlParams.get('utm_campaign') || '',
+        utm_content: urlParams.get('utm_content') || '',
+        utm_term: urlParams.get('utm_term') || '',
+        fbclid: urlParams.get('fbclid') || '',
+        src: urlParams.get('src') || '',
+        sck: urlParams.get('sck') || '',
+      }
+      
+      console.log("[v0] Firing tracking events with data:", { balance, utmData })
+      
+      // Fire Meta Pixel Lead event IMMEDIATELY
+      if (typeof window !== 'undefined' && window.fbq) {
+        try {
+          window.fbq('track', 'Lead', {
+            content_name: 'Quiz Completed',
+            value: balance,
+            currency: 'USD',
+            ...utmData
+          })
+          console.log("[v0] Facebook Lead event fired successfully")
+        } catch (error) {
+          console.error("[v0] Error firing Facebook Lead event:", error)
+        }
+      }
+      
+      // Fire UTMify conversion event
+      if (typeof window !== 'undefined') {
+        try {
+          // UTMify uses a global function to track conversions
+          // The script automatically captures UTMs, we just need to trigger the conversion
+          const utmifyData = {
+            orderId: `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            total: balance,
+            currency: 'USD',
+            paymentMethod: 'lead',
+            customer: {
+              name: '',
+              email: '',
+              phone: ''
+            }
+          }
+          
+          // Try to access UTMify's tracking function
+          if (window.Utmify && typeof window.Utmify.trackLead === 'function') {
+            window.Utmify.trackLead(utmifyData)
+            console.log("[v0] UTMify trackLead fired successfully")
+          } else if (window.Utmify && typeof window.Utmify.track === 'function') {
+            window.Utmify.track('Lead', utmifyData)
+            console.log("[v0] UTMify track Lead fired successfully")
+          }
+          
+          // Also dispatch a custom event that UTMify might listen to
+          const utmifyEvent = new CustomEvent('utmify:conversion', {
+            detail: utmifyData
+          })
+          window.dispatchEvent(utmifyEvent)
+          console.log("[v0] UTMify custom event dispatched")
+          
+        } catch (error) {
+          console.error("[v0] Error firing UTMify event:", error)
+        }
+      }
+    }
+  }, [balance])
 
   useEffect(() => {
     const countdownInterval = setInterval(() => {
@@ -26,15 +113,7 @@ export function Completion({ balance }: CompletionProps) {
         ? `${baseUrl}?${currentParams.toString()}`
         : baseUrl
       
-      // Fire Meta Pixel Lead event before redirect
-      if (typeof window !== 'undefined' && (window as any).fbq) {
-        (window as any).fbq('track', 'Lead', {
-          content_name: 'Quiz Completed',
-          value: balance,
-          currency: 'USD'
-        })
-      }
-      
+      console.log("[v0] Redirecting to:", redirectUrl)
       window.location.href = redirectUrl
     }, 5000)
 
@@ -42,7 +121,7 @@ export function Completion({ balance }: CompletionProps) {
       clearInterval(countdownInterval)
       clearTimeout(redirectTimer)
     }
-  }, [balance])
+  }, [])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
