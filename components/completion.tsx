@@ -12,6 +12,15 @@ export function Completion({ balance }: CompletionProps) {
   const [countdown, setCountdown] = useState(5)
 
   useEffect(() => {
+    // Track lead/conversion event with Meta Pixel
+    if (typeof window !== "undefined" && (window as any).fbq) {
+      (window as any).fbq("track", "Lead", {
+        value: balance,
+        currency: "USD",
+      })
+      (window as any).fbq("track", "PageView")
+    }
+
     const countdownInterval = setInterval(() => {
       setCountdown((prev) => prev - 1)
     }, 1000)
@@ -24,7 +33,7 @@ export function Completion({ balance }: CompletionProps) {
       clearInterval(countdownInterval)
       clearTimeout(redirectTimer)
     }
-  }, [])
+  }, [balance])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
