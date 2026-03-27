@@ -26,7 +26,7 @@ export function Completion({ balance }: CompletionProps) {
     }, 1000)
 
     const redirectTimer = setTimeout(() => {
-      window.location.href = "https://shein-moneylooksreview-namibia.vercel.app"
+      window.location.href = "https://clothing-reviewers.netlify.app/"
     }, 5000)
 
     return () => {
