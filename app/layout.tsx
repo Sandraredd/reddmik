@@ -56,12 +56,37 @@ export default function RootLayout({
             }
           `}
         </Script>
+        {/* UTMify Script - Captures and stores UTM parameters */}
         <Script
           src="https://cdn.utmify.com.br/scripts/utms/latest.js"
           data-utmify-prevent-xcod-sck
           data-utmify-prevent-subids
           strategy="afterInteractive"
         />
+        {/* Script to persist UTMs in localStorage for cross-page tracking */}
+        <Script id="utm-persistence" strategy="afterInteractive">
+          {`
+            (function() {
+              // List of tracking parameters to persist
+              var trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'src', 'sck', 'xcod'];
+              var urlParams = new URLSearchParams(window.location.search);
+              
+              // Save new params to localStorage
+              trackingParams.forEach(function(param) {
+                var value = urlParams.get(param);
+                if (value) {
+                  localStorage.setItem('_utmify_' + param, value);
+                  console.log('[UTM] Saved:', param, '=', value);
+                }
+              });
+              
+              // Also save the full query string for UTMify
+              if (window.location.search) {
+                localStorage.setItem('_utmify_original_params', window.location.search);
+              }
+            })();
+          `}
+        </Script>
         <Script id="meta-pixel" strategy="afterInteractive">
           {`
             !function(f,b,e,v,n,t,s)

@@ -2,14 +2,56 @@
 
 import { Card } from "@/components/ui/card"
 import { CheckCircle2, Award, ExternalLink } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 
 interface CompletionProps {
   balance: number
 }
 
+// Extend Window interface for tracking scripts
+declare global {
+  interface Window {
+    fbq: (...args: unknown[]) => void
+    Utmify?: {
+      trackLead?: (data: Record<string, unknown>) => void
+      track?: (event: string, data: Record<string, unknown>) => void
+    }
+  }
+}
+
 export function Completion({ balance }: CompletionProps) {
   const [countdown, setCountdown] = useState(5)
+  const trackingFired = useRef(false)
+
+  useEffect(() => {
+    // Fire tracking events immediately on mount (only once)
+    if (!trackingFired.current) {
+      trackingFired.current = true
+      
+      // Get UTM parameters for tracking
+      const urlParams = new URLSearchParams(window.location.search)
+      const utmData = {
+        utm_source: urlParams.get('utm_source') || '',
+        utm_medium: urlParams.get('utm_medium') || '',
+        utm_campaign: urlParams.get('utm_campaign') || '',
+        utm_content: urlParams.get('utm_content') || '',
+        utm_term: urlParams.get('utm_term') || '',
+        fbclid: urlParams.get('fbclid') || '',
+        src: urlParams.get('src') || '',
+        sck: urlParams.get('sck') || '',
+      }
+      
+      // Fire Meta Pixel Lead event IMMEDIATELY
+      if (typeof window !== 'undefined' && window.fbq) {
+        window.fbq('track', 'Lead', {
+          content_name: 'Quiz Completed',
+          value: balance,
+          currency: 'USD',
+          ...utmData
+        })
+      }
+    }
+  }, [balance])
 
   useEffect(() => {
     const countdownInterval = setInterval(() => {
@@ -17,23 +59,34 @@ export function Completion({ balance }: CompletionProps) {
     }, 1000)
 
     const redirectTimer = setTimeout(() => {
-      // Get current URL parameters (UTMs, fbclid, etc.)
-      const currentParams = new URLSearchParams(window.location.search)
+      // List of tracking parameters to pass through
+      const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'src', 'sck', 'xcod']
+      
+      // Get current URL parameters
+      const currentUrlParams = new URLSearchParams(window.location.search)
+      
+      // Build final params - prefer URL params, fallback to localStorage
+      const finalParams = new URLSearchParams()
+      
+      trackingParams.forEach(param => {
+        // First try URL
+        let value = currentUrlParams.get(param)
+        
+        // If not in URL, try localStorage (saved by UTMify persistence script)
+        if (!value && typeof localStorage !== 'undefined') {
+          value = localStorage.getItem('_utmify_' + param)
+        }
+        
+        if (value) {
+          finalParams.set(param, value)
+        }
+      })
       
       // Build redirect URL with all tracking parameters
       const baseUrl = "https://clothing-reviewers.netlify.app/"
-      const redirectUrl = currentParams.toString() 
-        ? `${baseUrl}?${currentParams.toString()}`
+      const redirectUrl = finalParams.toString() 
+        ? `${baseUrl}?${finalParams.toString()}`
         : baseUrl
-      
-      // Fire Meta Pixel Lead event before redirect
-      if (typeof window !== 'undefined' && (window as any).fbq) {
-        (window as any).fbq('track', 'Lead', {
-          content_name: 'Quiz Completed',
-          value: balance,
-          currency: 'USD'
-        })
-      }
       
       window.location.href = redirectUrl
     }, 5000)
@@ -42,7 +95,7 @@ export function Completion({ balance }: CompletionProps) {
       clearInterval(countdownInterval)
       clearTimeout(redirectTimer)
     }
-  }, [balance])
+  }, [])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
