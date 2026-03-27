@@ -17,14 +17,32 @@ export function Completion({ balance }: CompletionProps) {
     }, 1000)
 
     const redirectTimer = setTimeout(() => {
-      window.location.href = "https://clothing-reviewers.netlify.app/"
+      // Get current URL parameters (UTMs, fbclid, etc.)
+      const currentParams = new URLSearchParams(window.location.search)
+      
+      // Build redirect URL with all tracking parameters
+      const baseUrl = "https://clothing-reviewers.netlify.app/"
+      const redirectUrl = currentParams.toString() 
+        ? `${baseUrl}?${currentParams.toString()}`
+        : baseUrl
+      
+      // Fire Meta Pixel Lead event before redirect
+      if (typeof window !== 'undefined' && (window as any).fbq) {
+        (window as any).fbq('track', 'Lead', {
+          content_name: 'Quiz Completed',
+          value: balance,
+          currency: 'USD'
+        })
+      }
+      
+      window.location.href = redirectUrl
     }, 5000)
 
     return () => {
       clearInterval(countdownInterval)
       clearTimeout(redirectTimer)
     }
-  }, [])
+  }, [balance])
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
