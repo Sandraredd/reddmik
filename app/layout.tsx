@@ -70,12 +70,14 @@ export default function RootLayout({
               // List of tracking parameters to persist
               var trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid', 'gclid', 'src', 'sck', 'xcod'];
               var urlParams = new URLSearchParams(window.location.search);
+              var hasNewParams = false;
               
-              // Save new params to localStorage
+              // Save new params to localStorage (only if they exist in URL)
               trackingParams.forEach(function(param) {
                 var value = urlParams.get(param);
                 if (value) {
                   localStorage.setItem('_utmify_' + param, value);
+                  hasNewParams = true;
                   console.log('[UTM] Saved:', param, '=', value);
                 }
               });
@@ -83,6 +85,22 @@ export default function RootLayout({
               // Also save the full query string for UTMify
               if (window.location.search) {
                 localStorage.setItem('_utmify_original_params', window.location.search);
+              }
+              
+              // If no params in URL but we have stored params, log them
+              if (!hasNewParams) {
+                console.log('[UTM] Using stored params from localStorage');
+                trackingParams.forEach(function(param) {
+                  var stored = localStorage.getItem('_utmify_' + param);
+                  if (stored) {
+                    console.log('[UTM] Stored:', param, '=', stored);
+                  }
+                });
+              }
+              
+              // Save timestamp of first visit for attribution window
+              if (!localStorage.getItem('_utmify_first_visit')) {
+                localStorage.setItem('_utmify_first_visit', new Date().toISOString());
               }
             })();
           `}
@@ -97,8 +115,28 @@ export default function RootLayout({
             t.src=v;s=b.getElementsByTagName(e)[0];
             s.parentNode.insertBefore(t,s)}(window, document,'script',
             'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init', '2083116202421512');
-            fbq('track', 'PageView');
+            
+            // Get UTM parameters for better tracking
+            var urlParams = new URLSearchParams(window.location.search);
+            var fbclid = urlParams.get('fbclid');
+            var utmSource = urlParams.get('utm_source');
+            var utmMedium = urlParams.get('utm_medium');
+            var utmCampaign = urlParams.get('utm_campaign');
+            
+            // Initialize with external_id if fbclid is present for better matching
+            var initOptions = {};
+            if (fbclid) {
+              initOptions.external_id = fbclid;
+            }
+            
+            fbq('init', '2083116202421512', initOptions);
+            fbq('track', 'PageView', {
+              utm_source: utmSource || '',
+              utm_medium: utmMedium || '',
+              utm_campaign: utmCampaign || ''
+            });
+            
+            console.log('[Meta Pixel] Initialized with fbclid:', fbclid);
           `}
         </Script>
         <noscript>
